@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Camp Inventory - Requests</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
+<style>
+/* General Body */
+body {
+  font-family: Arial, sans-serif;
+  background: #f8f9fa;
+  overflow-x: hidden;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 220px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  height: 100vh;
+  position: fixed;
+  transition: width 0.3s;
+  z-index: 1000;
+}
+.sidebar.collapsed { width: 60px; }
+.sidebar .nav-link {
+  display: flex;
+  align-items: center;
+  color: rgba(255,255,255,0.85);
+  padding: 15px 20px;
+  margin: 5px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+.sidebar .nav-link:hover, .sidebar .nav-link.active {
+  background: rgba(255,255,255,0.15);
+  color: #fff;
+  transform: translateX(5px);
+}
+.sidebar i { width: 25px; }
+.sidebar-text { margin-left: 10px; transition: opacity 0.3s; }
+.sidebar.collapsed .sidebar-text { display: none; }
+
+/* Main Content */
+.main-content {
+  margin-left: 220px;
+  padding: 20px;
+  transition: margin-left 0.3s;
+  min-height: 100vh;
+}
+.main-content.expanded { margin-left: 60px; }
+
+/* Navbar */
+.navbar {
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+  margin-bottom: 20px;
+}
+.navbar-text { font-size: 0.9rem; }
+
+/* Cards & Buttons */
+.card { border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+.btn-primary { background: #667eea; border-color: #667eea; }
+.btn-primary:hover { background: #5a6ddb; border-color: #5a6ddb; }
+.btn-success { background: #56ab2f; border-color: #56ab2f; }
+.btn-success:hover { background: #4ca12a; border-color: #4ca12a; }
+
+/* Table */
+.table thead { background-color: #e9ecef; }
+.table td, .table th { vertical-align: middle; }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar" id="sidebar">
+  <div class="p-3 text-center text-white">
+    <button class="btn btn-link text-white btn-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+    <h4 class="mt-2 sidebar-text">Camp Inventory</h4>
+  </div>
+  <nav class="nav flex-column mt-3">
+    <div class="nav-link" onclick="navigateTo('/dashboard')"><i class="fas fa-tachometer-alt"></i><span class="sidebar-text">Dashboard</span></div>
+    <div class="nav-link" onclick="navigateTo('/items')"><i class="fas fa-boxes"></i><span class="sidebar-text">Items</span></div>
+    <div class="nav-link active" onclick="navigateTo('/requests')"><i class="fas fa-clipboard-list"></i><span class="sidebar-text">Requests</span></div>
+    {% if role == 'Admin' %}
+    <div class="nav-link" onclick="navigateTo('/manage_users')"><i class="fas fa-users-cog"></i><span class="sidebar-text">Manage Users</span></div>
+    {% endif %}
+    <div class="nav-link" onclick="navigateTo('/logout')"><i class="fas fa-sign-out-alt"></i><span class="sidebar-text">Logout</span></div>
+  </nav>
+</div>
+
+<!-- Main Content -->
+<div class="main-content" id="mainContent">
+  <nav class="navbar navbar-expand-lg px-3">
+    <div class="container-fluid">
+      <h2 class="navbar-brand mb-0">Requests</h2>
+      <div class="navbar-nav ms-auto">
+        <span class="navbar-text">Welcome, <strong>{{ user.username }}</strong> <span class="badge bg-primary">{{ user.role }}</span></span>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container-fluid mt-4">
+
+    <!-- Scout Request Form -->
+    {% if user.role == 'Scout' %}
+    <div class="card mb-4">
+      <div class="card-body">
+        <h5 class="card-title">Submit Request</h5>
+        <form method="POST" action="{{ url_for('requests_page') }}">
+          <div class="mb-3">
+            <label class="form-label">Item ID</label>
+            <input type="number" class="form-control" name="item_id" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Quantity</label>
+            <input type="number" class="form-control" name="quantity" required>
+          </div>
+          <button type="submit" class="btn btn-primary">Submit Request</button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Requests Table -->
+    <div class="card">
+      <div class="card-body">
+        <h5 class="card-title">All Requests</h5>
+        <div class="table-responsive">
+          <table class="table table-striped align-middle">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Item ID</th>
+                <th>Quantity</th>
+                <th>Status</th>
+                <th>Requested By</th>
+                {% if user.role in ['Quartermaster','Admin'] %}
+                <th>Action</th>
+                {% endif %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for req in requests %}
+              <tr>
+                <td>{{ req.id }}</td>
+                <td>{{ req.item_id }}</td>
+                <td>{{ req.quantity }}</td>
+                <td>{{ req.status }}</td>
+                <td>{{ req.requested_by }}</td>
+                {% if user.role in ['Quartermaster','Admin'] %}
+                <td>
+                  <form method="POST" action="{{ url_for('update_request', req_id=req.id) }}" class="d-flex">
+                    <select name="status" class="form-select form-select-sm me-2">
+                      <option value="Pending" {% if req.status=='Pending' %}selected{% endif %}>Pending</option>
+                      <option value="Approved" {% if req.status=='Approved' %}selected{% endif %}>Approved</option>
+                      <option value="Rejected" {% if req.status=='Rejected' %}selected{% endif %}>Rejected</option>
+                    </select>
+                    <button type="submit" class="btn btn-success btn-sm">Update</button>
+                  </form>
+                </td>
+                {% endif %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/js/all.min.js"></script>
+<script>
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const mainContent = document.getElementById('mainContent');
+  sidebar.classList.toggle('collapsed');
+  mainContent.classList.toggle('expanded');
+  document.querySelectorAll('.sidebar-text').forEach(t => {
+    t.style.display = sidebar.classList.contains('collapsed') ? 'none' : 'inline';
+  });
+}
+function navigateTo(path) {
+  window.location.href = path;
+}
+</script>
+</body>
+</html>
